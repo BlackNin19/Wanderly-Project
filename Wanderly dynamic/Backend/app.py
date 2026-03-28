@@ -10,7 +10,7 @@ from routes.trips import trips_bp
 from routes.reviews import reviews_bp
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["https://wanderly-project.vercel.app"])
 app.register_blueprint(souvenirs_bp)
 app.register_blueprint(places_bp)
 app.register_blueprint(auth_bp)
