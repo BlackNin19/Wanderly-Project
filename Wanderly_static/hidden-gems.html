@@ -88,7 +88,7 @@ function loadProfile() {
 
 /* Load hidden gems */
 function loadHiddenGems() {
-    fetch("http://localhost:5000/hidden-gems")
+    fetch("https://wanderly-project-o7s2.onrender.com/hidden-gems")
         .then(res => res.json())
         .then(data => {
             const container = document.getElementById("gemsContainer");
