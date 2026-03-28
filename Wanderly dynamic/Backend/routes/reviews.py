@@ -5,6 +5,8 @@ reviews_bp = Blueprint("reviews", __name__)
 
 @reviews_bp.route("/reviews", methods=["POST"])
 def add_review():
+    conn = None
+    cursor = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -17,7 +19,7 @@ def add_review():
         rating = data.get("rating")
         review_text = data.get("review_text")
 
-        # 🔴 validation
+        # validation
         if not user_id or not entity_type or not entity_id or not review_text:
             return jsonify({"error": "Missing fields"}), 400
 
@@ -42,17 +44,24 @@ def add_review():
         })
 
         conn.commit()
-        cursor.close()
-        conn.close()
-
         return jsonify({"message": "Review added successfully"})
 
     except Exception as e:
         print("REVIEW ERROR:", e)
+        if conn:
+            conn.rollback()
         return jsonify({"error": "Failed"}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 @reviews_bp.route("/reviews", methods=["GET"])
 def get_reviews():
+    conn = None
+    cursor = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
@@ -80,11 +89,14 @@ def get_reviews():
                 "created_at": str(row[4])
             })
 
-        cursor.close()
-        conn.close()
-
         return jsonify(reviews)
 
     except Exception as e:
         print("GET REVIEWS ERROR:", e)
         return jsonify({"error": "Failed"}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()

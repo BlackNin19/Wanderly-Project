@@ -9,40 +9,41 @@ souvenirs_bp = Blueprint("souvenirs", __name__)
 # ----------------------------------------------------
 @souvenirs_bp.route("/souvenirs", methods=["GET"])
 def get_all_souvenirs():
-
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT s.souvenir_id,
-               s.place_id,
-               s.name,
-               s.description,
-               s.rating,
-               s.shop_name,
-               p.name
-        FROM souvenirs s
-        JOIN places p ON s.place_id = p.place_id
-        WHERE p.status = 'approved'
-        ORDER BY s.rating DESC NULLS LAST
-    """)
+    try:
+        cursor.execute("""
+            SELECT s.souvenir_id,
+                   s.place_id,
+                   s.name,
+                   s.description,
+                   s.rating,
+                   s.shop_name,
+                   p.name
+            FROM souvenirs s
+            JOIN places p ON s.place_id = p.place_id
+            WHERE p.status = 'approved'
+            ORDER BY s.rating DESC NULLS LAST
+        """)
 
-    souvenirs = []
-    for row in cursor:
-        souvenirs.append({
-            "souvenir_id": row[0],
-            "place_id": row[1],
-            "name": row[2],
-            "description": row[3] if row[3] else "",
-            "rating": float(row[4]) if row[4] else None,
-            "shop_name": row[5],
-            "place_name": row[6]
-        })
+        souvenirs = []
+        for row in cursor:
+            souvenirs.append({
+                "souvenir_id": row[0],
+                "place_id": row[1],
+                "name": row[2],
+                "description": row[3] if row[3] else "",
+                "rating": float(row[4]) if row[4] else None,
+                "shop_name": row[5],
+                "place_name": row[6]
+            })
 
-    cursor.close()
-    conn.close()
+        return jsonify(souvenirs)
 
-    return jsonify(souvenirs)
+    finally:
+        cursor.close()
+        conn.close()
 
 
 # ----------------------------------------------------
@@ -50,7 +51,6 @@ def get_all_souvenirs():
 # ----------------------------------------------------
 @souvenirs_bp.route("/souvenirs", methods=["POST"])
 def add_souvenir():
-
     data = request.json
 
     required = ["place_id", "name", "description"]
@@ -63,29 +63,25 @@ def add_souvenir():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Validate place exists
-    cursor.execute("SELECT 1 FROM places WHERE place_id = %s",
-                   [data["place_id"]])
-
-    if not cursor.fetchone():
-        cursor.close()
-        conn.close()
-        return jsonify({"error": "Invalid place_id"}), 400
-
-    # Duplicate souvenir per place
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM souvenirs
-        WHERE place_id = %s
-        AND LOWER(TRIM(name)) = %s
-    """, [data["place_id"], normalized_name])
-
-    if cursor.fetchone()[0] > 0:
-        cursor.close()
-        conn.close()
-        return jsonify({"error": "Souvenir already exists for this place"}), 409
-
     try:
+        # Validate place exists
+        cursor.execute("SELECT 1 FROM places WHERE place_id = %s",
+                       [data["place_id"]])
+
+        if not cursor.fetchone():
+            return jsonify({"error": "Invalid place_id"}), 400
+
+        # Duplicate souvenir per place
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM souvenirs
+            WHERE place_id = %s
+            AND LOWER(TRIM(name)) = %s
+        """, [data["place_id"], normalized_name])
+
+        if cursor.fetchone()[0] > 0:
+            return jsonify({"error": "Souvenir already exists for this place"}), 409
+
         cursor.execute("""
             INSERT INTO souvenirs
             (place_id, name, description, rating, shop_name)
@@ -99,13 +95,12 @@ def add_souvenir():
         ))
 
         conn.commit()
-
-        cursor.close()
-        conn.close()
-
         return jsonify({"message": "Souvenir added successfully"}), 201
 
     except Exception as e:
+        conn.rollback()
+        return jsonify({"error": str(e)}), 500
+
+    finally:
         cursor.close()
         conn.close()
-        return jsonify({"error": str(e)}), 500

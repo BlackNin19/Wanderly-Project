@@ -11,23 +11,25 @@ def get_hidden_gems():
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT place_id, name, description, image, category
-        FROM places
-        WHERE LOWER(category) = 'hidden'
-    """)
+    try:
+        cursor.execute("""
+            SELECT place_id, name, description, image, category
+            FROM places
+            WHERE LOWER(category) = 'hidden'
+        """)
 
-    places = []
-    for row in cursor:
-        places.append({
-            "place_id": row[0],
-            "name": row[1],
-            "description": row[2] if row[2] else "",
-            "image": row[3],
-            "category": row[4]
-        })
+        places = []
+        for row in cursor:
+            places.append({
+                "place_id": row[0],
+                "name": row[1],
+                "description": row[2] if row[2] else "",
+                "image": row[3],
+                "category": row[4]
+            })
 
-    cursor.close()
-    conn.close()
+        return jsonify(places)
 
-    return jsonify(places)
+    finally:
+        cursor.close()
+        conn.close()

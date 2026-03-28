@@ -11,25 +11,28 @@ def get_trips(user_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT trip_id, trip_name, days, created_at
-        FROM trips
-        WHERE user_id = %s
-        ORDER BY created_at DESC
-    """, [user_id])
+    try:
+        cursor.execute("""
+            SELECT trip_id, trip_name, days, created_at
+            FROM trips
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+        """, [user_id])
 
-    trips = []
-    for t in cursor:
-        trips.append({
-            "trip_id": t[0],
-            "name": t[1],
-            "days": t[2],
-            "created_at": str(t[3])
-        })
+        trips = []
+        for t in cursor:
+            trips.append({
+                "trip_id": t[0],
+                "name": t[1],
+                "days": t[2],
+                "created_at": str(t[3])
+            })
 
-    cursor.close()
-    conn.close()
-    return jsonify(trips)
+        return jsonify(trips)
+
+    finally:
+        cursor.close()
+        conn.close()
 
 
 # -----------------------------
@@ -45,17 +48,19 @@ def create_trip():
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        INSERT INTO trips (user_id, trip_name, days)
-        VALUES (%s, %s, %s)
-        RETURNING trip_id
-    """, [user_id, name, days])
+    try:
+        cursor.execute("""
+            INSERT INTO trips (user_id, trip_name, days)
+            VALUES (%s, %s, %s)
+            RETURNING trip_id
+        """, [user_id, name, days])
 
-    conn.commit()
-    cursor.close()
-    conn.close()
+        conn.commit()
+        return jsonify({"message": "Trip created"})
 
-    return jsonify({"message": "Trip created"})
+    finally:
+        cursor.close()
+        conn.close()
 
 
 # -----------------------------
@@ -104,16 +109,18 @@ def add_place_to_trip():
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        INSERT INTO trip_places (trip_id, place_id, day_number, order_in_day)
-        VALUES (%s, %s, %s, %s)
-    """, [trip_id, place_id, day_number, order_in_day])
+    try:
+        cursor.execute("""
+            INSERT INTO trip_places (trip_id, place_id, day_number, order_in_day)
+            VALUES (%s, %s, %s, %s)
+        """, [trip_id, place_id, day_number, order_in_day])
 
-    conn.commit()
-    cursor.close()
-    conn.close()
+        conn.commit()
+        return jsonify({"message": "Place added to trip"})
 
-    return jsonify({"message": "Place added to trip"})
+    finally:
+        cursor.close()
+        conn.close()
 
 @trips_bp.route("/search_places")
 def search_places():
@@ -122,70 +129,78 @@ def search_places():
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT place_id, name, description, image
-        FROM places
-        WHERE LOWER(name) LIKE %s
-        LIMIT 10
-    """, [f"%{query}%"])
+    try:
+        cursor.execute("""
+            SELECT place_id, name, description, image
+            FROM places
+            WHERE LOWER(name) LIKE %s
+            LIMIT 10
+        """, [f"%{query}%"])
 
-    results = []
-    for row in cursor:
-        desc = row[2] if row[2] else ""
-        results.append({
-            "place_id": row[0],
-            "name": row[1],
-            "description": desc[:120],
-            "image": row[3]
-        })
+        results = []
+        for row in cursor:
+            desc = row[2] if row[2] else ""
+            results.append({
+                "place_id": row[0],
+                "name": row[1],
+                "description": desc[:120],
+                "image": row[3]
+            })
 
-    cursor.close()
-    conn.close()
-    return jsonify(results)
+        return jsonify(results)
+
+    finally:
+        cursor.close()
+        conn.close()
 
 @trips_bp.route("/trip_places/<int:trip_id>")
 def get_trip_places(trip_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT tp.id, tp.day_number, p.name
-        FROM trip_places tp
-        JOIN places p ON p.place_id = tp.place_id
-        WHERE tp.trip_id = %s
-        ORDER BY tp.day_number, tp.order_in_day
-    """, [trip_id])
+    try:
+        cursor.execute("""
+            SELECT tp.id, tp.day_number, p.name
+            FROM trip_places tp
+            JOIN places p ON p.place_id = tp.place_id
+            WHERE tp.trip_id = %s
+            ORDER BY tp.day_number, tp.order_in_day
+        """, [trip_id])
 
-    days = {}
+        days = {}
 
-    for row in cursor:
-        day = str(row[1])   # FIX: convert to string
-        if day not in days:
-            days[day] = []
-        days[day].append({
-            "id": row[0],
-            "name": row[2]
-        })
+        for row in cursor:
+            day = str(row[1])   # convert to string for JSON key
+            if day not in days:
+                days[day] = []
+            days[day].append({
+                "id": row[0],
+                "name": row[2]
+            })
 
-    cursor.close()
-    conn.close()
-    return jsonify(days)
+        return jsonify(days)
+
+    finally:
+        cursor.close()
+        conn.close()
 
 @trips_bp.route("/trip_places/<int:tp_id>", methods=["DELETE"])
 def remove_place(tp_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        DELETE FROM trip_places
-        WHERE id = %s
-    """, [tp_id])
+    try:
+        cursor.execute("""
+            DELETE FROM trip_places
+            WHERE id = %s
+        """, [tp_id])
 
-    conn.commit()
-    cursor.close()
-    conn.close()
+        conn.commit()
+        return jsonify({"message": "Place removed"})
 
-    return jsonify({"message": "Place removed"})
+    finally:
+        cursor.close()
+        conn.close()
 
 @trips_bp.route("/trip_places/<int:tp_id>", methods=["PUT"])
 def move_place(tp_id):
@@ -195,17 +210,19 @@ def move_place(tp_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        UPDATE trip_places
-        SET day_number = %s
-        WHERE id = %s
-    """, [new_day, tp_id])
+    try:
+        cursor.execute("""
+            UPDATE trip_places
+            SET day_number = %s
+            WHERE id = %s
+        """, [new_day, tp_id])
 
-    conn.commit()
-    cursor.close()
-    conn.close()
+        conn.commit()
+        return jsonify({"message": "Place moved"})
 
-    return jsonify({"message": "Place moved"})
+    finally:
+        cursor.close()
+        conn.close()
 
 @trips_bp.route("/trips/<int:trip_id>", methods=["PUT"])
 def update_trip(trip_id):
@@ -216,15 +233,17 @@ def update_trip(trip_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute("""
-        UPDATE trips
-        SET days = %s,
-            start_date = %s::date
-        WHERE trip_id = %s
-    """, [days, start_date, trip_id])
+    try:
+        cursor.execute("""
+            UPDATE trips
+            SET days = %s,
+                start_date = %s::date
+            WHERE trip_id = %s
+        """, [days, start_date, trip_id])
 
-    conn.commit()
-    cursor.close()
-    conn.close()
+        conn.commit()
+        return jsonify({"message": "Trip updated"})
 
-    return jsonify({"message": "Trip updated"})
+    finally:
+        cursor.close()
+        conn.close()
