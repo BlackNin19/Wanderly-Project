@@ -49,7 +49,7 @@ function loadProfile() {
     const userData = localStorage.getItem("user");
 
     if (!userData) {
-        window.location.href = "signin.html";
+        window.location.href = "Signin.html";
         return;
     }
 

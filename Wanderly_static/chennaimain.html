@@ -491,13 +491,13 @@ function goToTrips() {
 
 function logout() {
     localStorage.removeItem("user");
-    window.location.href = "signin.html";
+    window.location.href = "Signin.html";
 }
 document.addEventListener("DOMContentLoaded", function() {
     const userData = localStorage.getItem("user");
 
     if (!userData) {
-        window.location.href = "signin.html";
+        window.location.href = "Signin.html";
         return;
     }
 
